@@ -1,11 +1,22 @@
-import math
+import sys
+import time
+import itertools
 
-N = 9  # 9x9 grid
+# Generate all numbers with unique digits and function for filtering them by a gcd
+def generate_unique_numbers():
+    digits_no_zero = '123456789'
+    digits_with_zero = '0123456789'
+    eight_digit = [int(''.join(p)) for p in itertools.permutations(digits_no_zero, 8)]
+    nine_digit =  [int(''.join(p)) for p in itertools.permutations(digits_with_zero, 9)]
+    return eight_digit + nine_digit
 
-# Bitmasks for each row/column/box
-row = [0] * N
-col = [0] * N
-box = [0] * N
+def filter_by_gcd(numbers, gcd):
+    return [num for num in numbers if num % gcd == 0]
+
+# Approach the Sudoku solution with bitmasking and backtracking
+# Bitmasks for each column/box. Row already has unique digits. 10 digits in total
+col = [0] * 10
+box = [0] * 10
 seted = False
 
 # Utility function to find the box index of an element at position [i][j] in the grid
@@ -13,124 +24,113 @@ def getBox(i, j):
     return i // 3 * 3 + j // 3
 
 # Utility function to check if a number is present in the corresponding row/column/box
-def isSafe(i, j, number):
-    return not (row[i] >> number) & 1 and not (col[j] >> number) & 1 and not (box[getBox(i, j)] >> number) & 1
+def isSafeCell(i, j, number):
+    return not (col[j] >> number) & 1 and not (box[getBox(i, j)] >> number) & 1
+
+# Utility function to check if an entire row of numbers is safe
+def isSafeRow(i, num):
+    num_str = str(num)
+    if len(num_str) == 8:
+        num_str = '0' + num_str  # Prepend a zero to make it 9 digits
+    
+    # Convert the string into a list of digits
+    digits = [int(digit) for digit in num_str]  # Now `digits` will always have 9 elements
+    
+    # Check each column in the row for safety
+    for j in range(9):  # Loop through each column in the row
+        number = digits[j]  # Get the number at column j
+        if not isSafeCell(i, j, number):
+            return False
+    return True
 
 # Utility function to set the initial values of a Sudoku board (map the values in the bitmasks)
 def setInitialValues(grid):
-    global row, col, box
-    for i in range(N):
-        for j in range(N):
-            if grid[i][j] is not None:  # Only update the bitmask for non-'None' entries
-                row[i] |= 1 << grid[i][j]
+    global col, box
+    for i in range(9):  # Assuming a 9x9 grid
+        for j in range(9):
+            if grid[i][j] is not None:
                 col[j] |= 1 << grid[i][j]
                 box[getBox(i, j)] |= 1 << grid[i][j]
 
-# Function to calculate the GCD of a list of 9-digit numbers (rows of the Sudoku grid)
-def calculate_gcd_of_rows(grid):
-    rows = [int(''.join(map(str, grid[i]))) for i in range(N)]
-    gcd = rows[0]
-    for num in rows[1:]:
-        gcd = math.gcd(gcd, num)
-    return gcd
-
-# Function to find the next empty cell ('None') in the grid
-def find_next_cell(grid):
-    for i in range(N):
-        for j in range(N):
-            if grid[i][j] is None:  # Find the first 'None'
-                return i, j
-    return None  # Return None if no empty cell is found
-
-# Function to solve Sudoku with MRV heuristic and track the best solution based on GCD
-def SolveSudoku(grid, solutions, max_gcd=0, best_solution=None, first_solution_gcd=None):
-    global seted  # Correct: declare 'seted' as global before use
+# Function to solve Sudoku with backtracking
+def SolveSudoku(grid, unique_numbers, i):
+    global seted
+    # Set the initial values
     if not seted:
         seted = True
         setInitialValues(grid)
-
-    # Find the next cell to fill
-    cell = find_next_cell(grid)
     
-    if not cell:
-        # If no empty cells are left, we have a solution
-        current_gcd = calculate_gcd_of_rows(grid)
-        if best_solution is None or current_gcd > max_gcd:
-            max_gcd = current_gcd
-            best_solution = [row[:] for row in grid]  # Save the current best solution
-        return max_gcd, best_solution
+    # If we have reached the end of the grid, return True
+    row_count = len(grid)
+    col_count = len(grid[0])
+    if i == row_count:
+        return True
 
-    i, j = cell
-    
-    # Try all numbers from 0 to 9
-    for nr in range(10):  
-        if isSafe(i, j, nr):
-            grid[i][j] = nr
-            row[i] |= 1 << nr
-            col[j] |= 1 << nr
-            box[getBox(i, j)] |= 1 << nr
+    # If the current row is filled, move to the next row
+    if all(cell is not None for cell in grid[i]):
+        return SolveSudoku(grid, unique_numbers, i + 1)
 
-            # Check GCD of rows as you fill
-            if i == 1 and j == N-1:  
-                first_two_gcd = math.gcd(
-                    int(''.join(map(str, grid[0]))),
-                    int(''.join(map(str, grid[1])))
-                )
-                if first_solution_gcd is not None and first_two_gcd < first_solution_gcd:
-                    row[i] &= ~(1 << nr)
-                    col[j] &= ~(1 << nr)
-                    box[getBox(i, j)] &= ~(1 << nr)
-                    grid[i][j] = None
-                    continue
+    # Track which columns and boxes are affected in this row
+    changed_cells = []
 
-            max_gcd, best_solution = SolveSudoku(grid, solutions, max_gcd, best_solution, first_solution_gcd)
+    # Try each number from unique numbers
+    for num in unique_numbers:
+        if isSafeRow(i, num):
+            # Assign the num values to the grid row, and update the bitmasks
+            num_str = str(num)
+            if len(num_str) == 8:
+                num_str = '0' + num_str  # Prepend a zero to make it 9 digits
+            
+            digits = [int(digit) for digit in num_str]
 
-            # Backtrack: remove nr from bitmasks and try another number
-            row[i] &= ~(1 << nr)
-            col[j] &= ~(1 << nr)
-            box[getBox(i, j)] &= ~(1 << nr)
+            # Update the grid and bitmasks for this row
+            for j in range(col_count):
+                if grid[i][j] is None:  # Only update empty cells
+                    grid[i][j] = digits[j]
+                    col[j] |= 1 << digits[j]
+                    box[getBox(i, j)] |= 1 << digits[j]
+                    changed_cells.append((i, j, digits[j]))  # Track this change
 
-        # Reset the current cell if no valid number was found
-        grid[i][j] = None
+            # Recursively attempt to solve the rest of the grid
+            if SolveSudoku(grid, unique_numbers, i + 1):
+                return True
 
-    return max_gcd, best_solution
+            # Backtrack: undo the changes made for the current row
+            for cell in changed_cells:
+                row, col_idx, num_val = cell
+                grid[row][col_idx] = None  # Reset the cell
+                col[col_idx] &= ~(1 << num_val)  # Undo bitmask update
+                box[getBox(row, col_idx)] &= ~(1 << num_val)  # Undo box bitmask
+
+    return False
 
 # Utility function to print the solved grid
 def printGrid(grid):
-    for i in range(N):
+    for i in range(9):
         print(' '.join(map(str, grid[i])))
 
-# Driver code
+
 if __name__ == '__main__':
     grid = [
-        [None, None, None, None, None, None, None, 2, None],
-        [None, None, None, None, None, None, None, None, 5],
-        [None, 2, None, None, None, None, None, None, None],
-        [None, None, 0, None, None, None, None, None, None],
-        [None, None, None, None, None, None, None, None, None],
-        [None, None, None, 2, None, None, None, None, None],
-        [None, None, None, None, 0, None, None, None, None],
-        [None, None, None, None, None, 2, None, None, None],
-        [None, None, None, None, None, None, 5, None, None]
-    ]
+            [None, None, None, None, None, None, None, 2, None],
+            [None, None, None, None, None, None, None, None, 5],
+            [None, 2, None, None, None, None, None, None, None],
+            [None, None, 0, None, None, None, None, None, None],
+            [None, None, None, None, None, None, None, None, None],
+            [None, None, None, 2, None, None, None, None, None],
+            [None, None, None, None, 0, None, None, None, None],
+            [None, None, None, None, None, 2, None, None, None],
+            [None, None, None, None, None, None, 5, None, None]
+        ]
 
-    first_solution_gcd = None
-    solutions = []
-    max_gcd, first_solution = SolveSudoku(grid, solutions)
-
-    if first_solution:
-        first_solution_gcd = calculate_gcd_of_rows(first_solution)
-        print(f"First solution found with GCD: {first_solution_gcd}")
-        printGrid(first_solution)
+    start_time = time.time()
+    unique_numbers = filter_by_gcd(generate_unique_numbers(),3)
+    if SolveSudoku(grid, unique_numbers, 0):
+        print("Sudoku solved!")
+        printGrid(grid)
     else:
-        print("No solution exists")
-        first_solution_gcd = 0
-
-    solutions = []
-    max_gcd, best_solution = SolveSudoku(grid, solutions, max_gcd=first_solution_gcd, best_solution=first_solution, first_solution_gcd=first_solution_gcd)
-
-    if best_solution:
-        print(f"Best solution with GCD: {max_gcd}")
-        printGrid(best_solution)
-    else:
-        print("No better solution found")
+        print("No solution exists.")
+    
+    end_time = time.time()
+    elapsed_time = end_time - start_time
+    print(f"Time taken to complete the function: {elapsed_time:.2f} seconds")
