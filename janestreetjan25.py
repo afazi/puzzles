@@ -153,7 +153,7 @@ def setInitialValues(grid):
 # Function to solve the grid with backtracking
 def solveGrid(grid, unique_dict, i):
     # Set the initial values
-    global initialized
+    global initialized, col, box
     if not initialized:
         initialized = True
         setInitialValues(grid)
@@ -165,6 +165,9 @@ def solveGrid(grid, unique_dict, i):
     # If we have reached the end of the grid, return True
     if i == row_count:
         printGrid(grid)
+        col = [0] * 10
+        box = [0] * 10
+        initialized = False
         return True
 
     # If the current row is filled, move to the next row
@@ -199,29 +202,57 @@ def solveGrid(grid, unique_dict, i):
     
     return False
 
+def incrementer(n, addOrDouble):
+    last_digit = n % 10
+    if addOrDouble:
+        if last_digit == 1:
+            return n + 2 
+        elif last_digit == 3:
+            return n + 4
+        elif last_digit == 7:
+            return n + 2
+        elif last_digit == 9:
+            return n + 2
+        else:
+            return n 
+    else:
+        if last_digit == 1:
+            return n * 2 + 1
+        elif last_digit == 3:
+            return n * 2 + 1
+        elif last_digit == 7:
+            return n * 2 + 3
+        elif last_digit == 9:
+            return n * 2 + 1
+        else:
+            return n 
+        
 # Function that solves the grid with incrementing the gcd
-def solveGridWithGCD(grid, gcd, unique_numbers):
+def solveGridWithGCD(gcd, unique_numbers):
+    start_time = time.time()
+    grid = loadGrid()
     # Filter the given unique numbers by the GCD
     gcd_unique_numbers = filter_by_gcd(unique_numbers, gcd)
     # Generate the unique dictionary given the known digits
     unique_dict = generate_subsets_dict(grid, gcd_unique_numbers)
     print(f'Trying GCD {gcd}') 
     if solveGrid(grid, unique_dict, 0):
+        end_time = time.time()
+        elapsed_time = end_time - start_time
+        print(f"Time taken to complete the function: {elapsed_time:.2f} seconds")
         print(f'Current best GCD is {gcd}')
-        return solveGridWithGCD(grid, gcd * 2 + 1, unique_numbers)
+        return solveGridWithGCD(incrementer(gcd, 0), unique_numbers)
     else:
-        return solveGridWithGCD(grid, gcd + 2, unique_numbers)
+        end_time = time.time()
+        elapsed_time = end_time - start_time
+        print(f"Time taken to complete the function: {elapsed_time:.2f} seconds")
+        return solveGridWithGCD(incrementer(gcd, 1), unique_numbers)
 
 # Primary function to solve the puzzle
 def main(gcd):
-    start_time = time.time()
     print('Generating unique numbers')
-    grid = loadGrid()
     unique_numbers = generate_unique_numbers()
-    solveGridWithGCD(grid, gcd, unique_numbers)
-    end_time = time.time()
-    elapsed_time = end_time - start_time
-    print(f"Time taken to complete the function: {elapsed_time:.2f} seconds")
-
+    solveGridWithGCD(gcd, unique_numbers)
+    
 if __name__ == '__main__':
-    main(33)
+    main(677)
