@@ -17,6 +17,16 @@ def loadGrid():
     ]
     return grid
 
+# Generate a list of potential GCDs
+def generate_gcd_list(n):
+    numbers = [] 
+    for num in range(n, 500000000): # know that 701 works
+        # Check if the number ends in 1, 3, 7, or 9
+        if num % 10 in {1, 3, 7, 9}:
+            numbers.append(num)
+        
+    return numbers
+
 # Utility function to print the solved grid
 def printGrid(grid):
     # Clear the previous grid (if necessary)
@@ -106,6 +116,7 @@ def generate_subsets_dict(grid, unique_numbers):
 
     return results_dict
 
+# Given a set of numbers, return the subset that is divisble by a given gcd
 def filter_by_gcd(numbers, gcd):
     return [num for num in numbers if num % gcd == 0]
 
@@ -202,57 +213,34 @@ def solveGrid(grid, unique_dict, i):
     
     return False
 
-def incrementer(n, addOrDouble):
-    last_digit = n % 10
-    if addOrDouble:
-        if last_digit == 1:
-            return n + 2 
-        elif last_digit == 3:
-            return n + 4
-        elif last_digit == 7:
-            return n + 2
-        elif last_digit == 9:
-            return n + 2
-        else:
-            return n 
-    else:
-        if last_digit == 1:
-            return n * 2 + 1
-        elif last_digit == 3:
-            return n * 2 + 1
-        elif last_digit == 7:
-            return n * 2 + 3
-        elif last_digit == 9:
-            return n * 2 + 1
-        else:
-            return n 
-        
 # Function that solves the grid with incrementing the gcd
-def solveGridWithGCD(gcd, unique_numbers):
-    start_time = time.time()
-    grid = loadGrid()
-    # Filter the given unique numbers by the GCD
-    gcd_unique_numbers = filter_by_gcd(unique_numbers, gcd)
-    # Generate the unique dictionary given the known digits
-    unique_dict = generate_subsets_dict(grid, gcd_unique_numbers)
-    print(f'Trying GCD {gcd}') 
-    if solveGrid(grid, unique_dict, 0):
+def solveGridWithGCD(gcd_list, unique_numbers):
+    best_gcd = 701
+    for gcd in gcd_list:
+        print(f'Trying {gcd}')
+        start_time = time.time()
+        grid = loadGrid()
+        # Filter the given unique numbers by the GCD
+        gcd_unique_numbers = filter_by_gcd(unique_numbers, gcd)
+        unique_dict = generate_subsets_dict(grid, gcd_unique_numbers)
+        if solveGrid(grid, unique_dict, 0):
+            if gcd > best_gcd:
+                best_gcd = gcd
+            print(f'{gcd} was a SUCCESS! Best gcd: {best_gcd}')
+        else:
+            print(f'{gcd} was a FAILURE! Best gcd: {best_gcd}')
+        
         end_time = time.time()
         elapsed_time = end_time - start_time
-        print(f"Time taken to complete the function: {elapsed_time:.2f} seconds")
-        print(f'Current best GCD is {gcd}')
-        return solveGridWithGCD(incrementer(gcd, 0), unique_numbers)
-    else:
-        end_time = time.time()
-        elapsed_time = end_time - start_time
-        print(f"Time taken to complete the function: {elapsed_time:.2f} seconds")
-        return solveGridWithGCD(incrementer(gcd, 1), unique_numbers)
-
+        print(f"Time taken to complete the function: {elapsed_time:.2f} seconds\n")
+            
 # Primary function to solve the puzzle
-def main(gcd):
+def main(start_num):
+    print('Generating gcd list')
+    gcd_list = generate_gcd_list(start_num)
     print('Generating unique numbers')
     unique_numbers = generate_unique_numbers()
-    solveGridWithGCD(gcd, unique_numbers)
+    solveGridWithGCD(gcd_list, unique_numbers)
     
 if __name__ == '__main__':
-    main(677)
+    main(701)
